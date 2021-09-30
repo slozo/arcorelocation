@@ -228,16 +228,16 @@ extension ARLandmarker {
                 if !self.isPreparedToShowLandmarks {
                     self.isPreparedToShowLandmarks = true
                     self.delegate?.landmarkDisplayerIsReady()
+                    // Move the AR World origin
+                    let configuration = ARWorldTrackingConfiguration()
+                    configuration.worldAlignment = .gravityAndHeading
+                    self.view.session.run(configuration, options: [.resetTracking])
+                    self.worldOrigin = origin
                 }
                 
                 let landmarksCopy = self.landmarks.values.map({ $0 })
                 self.removeAllLandmarks()
-                
-                // Move the AR World origin
-                let configuration = ARWorldTrackingConfiguration()
-                configuration.worldAlignment = .gravityAndHeading
-                self.view.session.run(configuration, options: [.resetTracking])
-                self.worldOrigin = origin
+            
                 
                 // Replace all the landmarks
                 self.addPendingLandmarks()
