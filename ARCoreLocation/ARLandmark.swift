@@ -14,7 +14,9 @@ public struct ARLandmark {
     /// The info for this landmark. Landmark userInfo is for convenience, and is never displayed to the user.
     public let userInfo: [String: Any]
     /// The displayable image
-    public let image: UIImage
+    public let image: UIImage?
+
+    public let sceneName: String?
     /// The real-world location where the landmark is displayed
     public let location: CLLocation
     /// The id of the landmark in the AR World

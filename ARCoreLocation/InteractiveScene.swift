@@ -7,11 +7,18 @@
 //
 
 import SpriteKit
+import SceneKit
 
-protocol InteractiveSceneDelegate: class {
+protocol InteractiveSceneDelegate: AnyObject {
     func interactiveScene(_ scene: InteractiveScene, didTap nodes: [SKNode]) -> Void
     func interactiveScene(_ scene: InteractiveScene, hasIntersectingNodes intersecting: [[SKNode]], notIntersecting independents: [SKNode], atGeneration generation: UInt) -> Void
 }
+
+protocol SCInteractiveSceneDelegate: AnyObject {
+    func interactiveScene(_ scene: SCInteractiveScene, didTap nodes: [SCNNode]) -> Void
+    func interactiveScene(_ scene: SCInteractiveScene, hasIntersectingNodes intersecting: [[SCNNode]], notIntersecting independents: [SCNNode], atGeneration generation: UInt) -> Void
+}
+
 
 /*
  TODO:
@@ -93,3 +100,75 @@ extension SKNode {
         return CGRect(origin: convert(rect.origin, to: node), size: CGSize(width: xDiff, height: yDiff))
     }
 }
+
+public class SCInteractiveScene: SCNScene {
+    weak var interactionDelegate: SCInteractiveSceneDelegate?
+    private var intersectionTimer: Timer?
+
+    /// Request the scene to check for node intersections and notify the interactionDelegate when there are.
+    /// - parameter interval: The seconds between each intersection check
+    /// - parameter searchGeneration: The generation of nodes to search. 0 indicates the children of the receiver, 1 indicates the children of those children, etc.
+    public func startCheckingForNodeIntersections(atInterval interval: TimeInterval, atGeneration searchGeneration: UInt) {
+        intersectionTimer?.invalidate()
+        intersectionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            if let me = self {
+                let (intersections, independents) = me.intersectingNodes(searchGeneration: searchGeneration)
+                me.interactionDelegate?.interactiveScene(me, hasIntersectingNodes: intersections, notIntersecting: independents, atGeneration: searchGeneration)
+            }
+        }
+    }
+
+    /// Request the scene to stop checking for node intersections
+    public func stopCheckingForNodeIntersections() {
+        intersectionTimer?.invalidate()
+        intersectionTimer = nil
+    }
+
+    /// Get all the nodes that are intersecting at the given generation
+    /// - parameter searchGeneration: The generation of nodes to search. 0 indicates the children of the receiver, 1 indicates the children of those children, etc.
+    public func intersectingNodes(searchGeneration: UInt) -> (intersecting: [[SCNNode]], independent: [SCNNode]) {
+        let intersections = Set<Set<SCNNode>>()
+        var nodes = rootNode.childNodes
+        for _ in 0..<searchGeneration {
+            nodes = nodes.flatMap({ $0.childNodes })
+        }
+//        for (i, node) in nodes.enumerated() {
+//            for otherNode in nodes[(i + 1)...] {
+//                if node.parent!.convert(rect: node.frame, to: self.rootNode).intersects(otherNode.parent!.convert(rect: otherNode.frame, to: self.rootNode)) {
+//                    intersections.insert(Set([node, otherNode]))
+//                }
+//            }
+//        }
+        let joinedIntersections = SetMerger.mergeByCommonElements(sets: intersections)
+        let notIntersecting = Set(nodes).subtracting(Set(joinedIntersections.flatMap({ $0 })))
+        return (intersecting: joinedIntersections.map({ (nodeSet) -> [SCNNode] in nodeSet.map({ $0 }) }), independent: Array(notIntersecting))
+    }
+
+//    override public func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+//        var tappedNodes: [SCNNode] = []
+//        var handled = Set<UITouch>()
+//        for touch in touches {
+//            let location = touch.location(in: self)
+//            let node = atPoint(location)
+//            if node !== self {
+//                tappedNodes.append(node)
+//            }
+//            // Mark touch as handled
+//            handled.insert(touch)
+//        }
+//        let unhandled = touches.subtracting(handled)
+//        if !unhandled.isEmpty {
+//            // Only forward touches that weren't already handled
+//            super.touchesBegan(unhandled, with: event)
+//        }
+//        interactionDelegate?.interactiveScene(self, didTap: tappedNodes)
+//    }
+}
+
+//extension SCNNode {
+//    func convert(rect: CGRect, to node: SCNNode) -> CGRect {
+//        let xDiff = abs(convert(rect.maxXminY, to: node).x - convert(rect.minXminY, to: node).x)
+//        let yDiff = abs(convert(rect.minXmaxY, to: node).y - convert(rect.minXminY, to: node).y)
+//        return CGRect(origin: convert(rect.origin, to: node), size: CGSize(width: xDiff, height: yDiff))
+//    }
+//}
